@@ -1,0 +1,170 @@
+syntax = "proto3";
+
+package types;
+option go_package = "github.com/33cn/plugin/plugin/dapp/lns/types";
+
+import "transaction.proto";
+
+message LnsAction {
+    oneof value {
+        OpenChannel        open            = 1;
+        DepositChannel     depositChannel  = 2;
+        WithdrawChannel    withdrawChannel = 3;
+        CloseChannel       close           = 4;
+        UpdateBalanceProof updateProof     = 5;
+        Settle             settle          = 6;
+    }
+    int32 ty = 7;
+}
+
+message TokenCanonicalId {
+    string chain         = 1; // bty,user.p.guoduo,user.p.para
+    string issueContract = 2; // coins,token,paracross,ticket
+    string tokenSymbol   = 3; // bty,ycc,guodun,game,xxx
+}
+
+message OpenChannel {
+    string issueContract = 1;
+    string tokenSymbol   = 2;
+    string partner       = 3;
+    int32  settleTimeout = 4;
+    int64  amount        = 5;
+}
+
+message DepositChannel {
+    int64 channelID    = 1;
+    int64 totalDeposit = 2;
+}
+
+message WithdrawChannel {
+    int64                channelID           = 1;
+    WithdrawConfirmProof proof               = 2;
+    Signature            partnerSignature    = 3;
+    Signature            withdrawerSignature = 4;
+}
+
+message WithdrawConfirmProof {
+    int64  channelID       = 1;
+    string withdrawer      = 2;
+    int64  totalWithdraw   = 3;
+    int64  expirationBlock = 4;
+}
+
+message WithdrawConfirmProofSigned {
+    int64                channelID            = 1;
+    WithdrawConfirmProof WithdrawConfirmProof = 2;
+    Signature            partnerSignature     = 3;
+    Signature            withdrawerSignature  = 4;
+}
+
+message TransferAdditionData {
+    string paymentID = 1;
+    string receiver  = 2;
+    string sender    = 3;
+    int64  amount    = 4; //当前支付的数量
+}
+
+message BalanceProof {
+    int64  nonce             = 1;
+    int64  transferredAmount = 2; //累计支付的总数量
+    bytes  additionHash      = 3;
+    int64  channelID         = 4;
+    string chain             = 5; // bty,user.p.guoduo,user.p.para
+    string issueContract     = 6; // coins,token,paracross,ticket
+    string tokenSymbol       = 7; // bty,ycc,guodun,game,xxx
+}
+
+message CloseChannel {
+    int64        channelID          = 1;
+    BalanceProof nonCloserBalancePf = 2;
+    Signature    nonCloserSignature = 3;
+}
+
+message UpdateBalanceProof {
+    int64        channelID        = 1;
+    BalanceProof partnerBalancePf = 2;
+    Signature    partnerSignature = 3;
+}
+
+message Settle {
+    int64 channelID                = 1;
+    int64 selfTransferredAmount    = 2;
+    int64 partnerTransferredAmount = 3;
+}
+
+message Participant {
+    string addr              = 1;
+    int64  totalDeposit      = 2;
+    int64  totalWithdraw     = 3;
+    int64  nonce             = 4;
+    int64  transferredAmount = 5;
+}
+
+message Channel {
+    string      issueContract  = 1;
+    string      tokenSymbol    = 2;
+    int64       channelID      = 3;
+    int64       totalAmount    = 4;
+    int32       state          = 5;
+    Participant participant1   = 6;
+    Participant participant2   = 7;
+    string      closer         = 8;
+    int64       settleBlockNum = 9;
+}
+
+message ChannelCount {
+    int64 count = 1;
+}
+
+message ReqGetChannel {
+    int64 channelID = 1;
+}
+
+message ReceiptOpen {
+    string opener         = 1;
+    string partner        = 2;
+    int64  channelID      = 3;
+    int64  initialBalance = 4;
+    string chainName      = 5;
+    string issueContract  = 6;
+    string TokenSymbol    = 7;
+    int32  settleTimeOut  = 8;
+}
+
+message ReceiptDeposit {
+    string Chain         = 1;
+    string IssueContract = 2;
+    string TokenSymbol   = 3;
+    int64  channelID     = 4;
+    int64  totalDeposit  = 5;
+    string depositor     = 6;
+    string partner       = 7;
+}
+
+message ReceiptWithdraw {
+    int64 channelID     = 1;
+    int64 totalWithdraw = 2;
+}
+
+message ReceiptClose {
+    TokenCanonicalId TokenCanonicalId = 1;
+    int64            channelID        = 2;
+    string           closer           = 3;
+    string           partner          = 4;
+}
+
+message ReceiptUpdate {
+    TokenCanonicalId TokenCanonicalId = 1;
+    string           updater          = 2;
+    int64            channelID        = 3;
+    int64            nonce            = 4;
+}
+
+message ReceiptSettle {
+    TokenCanonicalId TokenCanonicalId   = 1;
+    int64            channelID          = 2;
+    string           participant1       = 3;
+    int64            transferredAmount1 = 4;
+    string           participant2       = 5;
+    int64            transferredAmount2 = 6;
+}

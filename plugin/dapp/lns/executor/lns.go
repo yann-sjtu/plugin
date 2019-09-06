@@ -1,0 +1,168 @@
+package executor
+
+import (
+	"github.com/33cn/chain33/common"
+	"github.com/33cn/chain33/common/address"
+	"github.com/33cn/chain33/common/crypto"
+	log "github.com/33cn/chain33/common/log/log15"
+	drivers "github.com/33cn/chain33/system/dapp"
+	"github.com/33cn/chain33/types"
+	lnstypes "github.com/33cn/plugin/plugin/dapp/lns/types"
+)
+
+/*
+ * 执行器相关定义
+ * 重载基类相关接口
+ */
+
+var (
+	//日志
+	elog = log.New("module", "lns.executor")
+)
+
+var driverName = lnstypes.LnsX
+
+func init() {
+	ety := types.LoadExecutorType(driverName)
+	ety.InitFuncList(types.ListMethod(&lns{}))
+}
+
+// Init register dapp
+func Init(name string, sub []byte) {
+	drivers.Register(GetName(), newLns, types.GetDappFork(driverName, "Enable"))
+}
+
+type lns struct {
+	drivers.DriverBase
+}
+
+func newLns() drivers.Driver {
+	t := &lns{}
+	t.SetChild(t)
+	t.SetExecutorType(types.LoadExecutorType(driverName))
+	return t
+}
+
+// GetName get driver name
+func GetName() string {
+	return newLns().GetName()
+}
+
+func (*lns) GetDriverName() string {
+	return driverName
+}
+
+// CheckTx 实现自定义检验交易接口，供框架调用
+func (l *lns) CheckTx(tx *types.Transaction, index int) error {
+	// implement code
+
+	lnsAction := &lnstypes.LnsAction{}
+	err := types.Decode(tx.Payload, lnsAction)
+	if err != nil {
+		return types.ErrDecode
+	}
+	fromAddr := tx.From()
+
+	switch lnsAction.Ty {
+
+	case lnstypes.TyOpenAction:
+		open := lnsAction.GetOpen()
+		if open == nil || open.Partner == "" || open.IssueContract == "" ||
+			(open.IssueContract != "coins" && open.TokenSymbol == "") {
+			return types.ErrInvalidParam
+		}
+
+		if address.CheckAddress(open.Partner) != nil || fromAddr == open.Partner {
+			return lnstypes.ErrInvalidChannelParticipants
+		}
+
+	case lnstypes.TyDepositAction:
+
+		deposit := lnsAction.GetDepositChannel()
+		if deposit == nil || deposit.ChannelID <= 0 || deposit.TotalDeposit <= 0 {
+			return types.ErrInvalidParam
+		}
+
+	case lnstypes.TyWithdrawAction:
+
+		withdraw := lnsAction.GetWithdrawChannel()
+		proof := withdraw.GetProof()
+		if withdraw == nil || withdraw.ChannelID <= 0 ||
+			proof == nil || proof.TotalWithdraw <= 0 ||
+			withdraw.PartnerSignature == nil || withdraw.WithdrawerSignature == nil {
+			return types.ErrInvalidParam
+		}
+		if proof.GetExpirationBlock() <= l.GetHeight() {
+			elog.Error("CheckWithdrawExpiration", "ChannelID", proof.GetChannelID(), "currentHeight", l.GetHeight(),
+				"expireBlock", proof.GetExpirationBlock())
+			return lnstypes.ErrWithdrawBlockExpiration
+		}
+		if err := checkSign(proof, withdraw.WithdrawerSignature); err != nil {
+			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "CheckWithdrawSignErr", err)
+			return lnstypes.ErrWithdrawSign
+		}
+
+		if err := checkSign(proof, withdraw.PartnerSignature); err != nil {
+			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "CheckPartnerSignErr", err)
+			return lnstypes.ErrPartnerSign
+		}
+
+	case lnstypes.TyCloseAction:
+		close := lnsAction.GetClose()
+		if close == nil || close.ChannelID <= 0 ||
+			close.NonCloserBalancePf.TransferredAmount < 0 {
+			return types.ErrInvalidParam
+		}
+		//verify signature
+		if err := checkSign(close.GetNonCloserBalancePf(), close.GetNonCloserSignature()); err != nil {
+			elog.Error("CheckCloseChannelTx", "ChannelID", close.GetChannelID(), "CheckNonCloserSignErr", err)
+			return lnstypes.ErrPartnerSign
+		}
+
+	case lnstypes.TyUpdateProofAction:
+		update := lnsAction.GetUpdateProof()
+		if update == nil || update.ChannelID <= 0 ||
+			update.PartnerBalancePf.TransferredAmount < 0 {
+			return types.ErrInvalidParam
+		}
+		//verify signature
+		if err := checkSign(update.GetPartnerBalancePf(), update.GetPartnerSignature()); err != nil {
+			elog.Error("CheckUpdateProofTx", "ChannelID", update.GetChannelID(), "CheckPartnerSignErr", err)
+			return lnstypes.ErrPartnerSign
+		}
+	case lnstypes.TySettleAction:
+		settle := lnsAction.GetSettle()
+		if settle == nil || settle.ChannelID <= 0 ||
+			settle.PartnerTransferredAmount < 0 || settle.SelfTransferredAmount < 0 {
+			return types.ErrInvalidParam
+		}
+	default:
+		return types.ErrActionNotSupport
+
+	}
+
+	return nil
+}
+
+func checkSign(msg types.Message, sign *types.Signature) error {
+
+	signData := common.Sha256(types.Encode(msg))
+	c, err := crypto.New(crypto.GetName(int(sign.GetTy())))
+	if err != nil {
+		return err
+	}
+	pub, err := c.PubKeyFromBytes(sign.Pubkey)
+	if err != nil {
+		return err
+	}
+	signBytes, err := c.SignatureFromBytes(sign.Signature)
+	if err != nil {
+		return err
+	}
+
+	if !pub.VerifyBytes(signData, signBytes) {
+		return types.ErrSign
+	}
+
+	return nil
+}
