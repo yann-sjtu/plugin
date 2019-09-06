@@ -369,8 +369,9 @@ func withdrawChannel(cmd *cobra.Command, args []string) {
 		PartnerSignature:    sign2,
 	}
 
-	payLoad, err := json.Marshal(withdraw)
+	payLoad, err := types.PBToJSON(withdraw)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "ErrPbToJson:"+err.Error())
 		return
 	}
 	pm := &rpctypes.CreateTxIn{

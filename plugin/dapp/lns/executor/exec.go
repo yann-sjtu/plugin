@@ -15,12 +15,12 @@ func (l *lns) Exec_Open(payload *lnstypes.OpenChannel, tx *types.Transaction, in
 	return action.openChannel(payload)
 }
 
-func (l *lns) Exec_Deposit(payload *lnstypes.DepositChannel, tx *types.Transaction, index int) (*types.Receipt, error) {
+func (l *lns) Exec_DepositChannel(payload *lnstypes.DepositChannel, tx *types.Transaction, index int) (*types.Receipt, error) {
 	action := newAction(l, tx, index)
 	return action.depositChannel(payload)
 }
 
-func (l *lns) Exec_Withdraw(payload *lnstypes.WithdrawChannel, tx *types.Transaction, index int) (*types.Receipt, error) {
+func (l *lns) Exec_WithdrawChannel(payload *lnstypes.WithdrawChannel, tx *types.Transaction, index int) (*types.Receipt, error) {
 	action := newAction(l, tx, index)
 	return action.withdrawChannel(payload)
 }
@@ -30,7 +30,7 @@ func (l *lns) Exec_Close(payload *lnstypes.CloseChannel, tx *types.Transaction, 
 	return action.closeChannel(payload)
 }
 
-func (l *lns) Exec_Update(payload *lnstypes.UpdateBalanceProof, tx *types.Transaction, index int) (*types.Receipt, error) {
+func (l *lns) Exec_UpdateProof(payload *lnstypes.UpdateBalanceProof, tx *types.Transaction, index int) (*types.Receipt, error) {
 	action := newAction(l, tx, index)
 	return action.updateBalanceProof(payload)
 }

@@ -25,3 +25,10 @@ func calcLnsChannelIDKey(channelID int64) []byte {
 
 	return []byte(KeyPrefixStateDB + "channelID-" + fmt.Sprintf("%d", channelID))
 }
+
+
+
+func calcLnsLocalChannelIDKey(channelID int64) []byte {
+
+	return []byte(KeyPrefixLocalDB + "channelID-" + fmt.Sprintf("%d", channelID))
+}

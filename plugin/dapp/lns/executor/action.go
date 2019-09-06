@@ -52,6 +52,9 @@ func (a *action) openChannel(open *lnstypes.OpenChannel) (*types.Receipt, error)
 	if chanCount.Count >= math.MaxInt64 {
 		return nil, lnstypes.ErrChannelIDOverFlow
 	}
+	if open.TokenSymbol == "" {
+		open.TokenSymbol = types.GetCoinSymbol()
+	}
 
 	elog.Debug("ExecOpenChannel", "ChannelCount", chanCount.Count)
 	channel := &lnstypes.Channel{}
@@ -63,6 +66,8 @@ func (a *action) openChannel(open *lnstypes.OpenChannel) (*types.Receipt, error)
 		open.SettleTimeout = maxSettleTimeout
 	}
 
+	channel.IssueContract = open.IssueContract
+	channel.TokenSymbol = open.TokenSymbol
 	channel.SettleBlockNum = int64(open.SettleTimeout)
 	channel.State = lnstypes.StateOpen
 	channel.Participant1 = &lnstypes.Participant{
@@ -72,7 +77,7 @@ func (a *action) openChannel(open *lnstypes.OpenChannel) (*types.Receipt, error)
 		Addr: open.Partner,
 	}
 
-	receipt := &types.Receipt{}
+	receipt := &types.Receipt{Ty:types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   countKey,
 		Value: types.Encode(chanCount),
@@ -138,7 +143,7 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 	channel.TotalAmount += depositAmount
 	participants[a.fromAddr].TotalDeposit = deposit.TotalDeposit
 
-	receipt := &types.Receipt{}
+	receipt := &types.Receipt{Ty:types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -196,7 +201,7 @@ func (a *action) withdrawChannel(withdraw *lnstypes.WithdrawChannel) (*types.Rec
 		return nil, lnstypes.ErrChannelState
 	}
 
-	if checkParticipantValidity(participants, withdrawAddr, partner) {
+	if !checkParticipantValidity(participants, withdrawAddr, partner) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
 
@@ -208,7 +213,7 @@ func (a *action) withdrawChannel(withdraw *lnstypes.WithdrawChannel) (*types.Rec
 	channel.TotalAmount -= withdrawAmount
 	participants[withdrawAddr].TotalWithdraw = totalWithdraw
 
-	receipt := &types.Receipt{}
+	receipt := &types.Receipt{Ty:types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -259,7 +264,7 @@ func (a *action) closeChannel(close *lnstypes.CloseChannel) (*types.Receipt, err
 		return nil, lnstypes.ErrChannelState
 	}
 
-	if checkParticipantValidity(participants, nonCloser, a.fromAddr) {
+	if !checkParticipantValidity(participants, nonCloser, a.fromAddr) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
 
@@ -272,7 +277,7 @@ func (a *action) closeChannel(close *lnstypes.CloseChannel) (*types.Receipt, err
 		participants[nonCloser].TransferredAmount = close.NonCloserBalancePf.TransferredAmount
 	}
 
-	receipt := &types.Receipt{}
+	receipt := &types.Receipt{Ty:types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -303,7 +308,7 @@ func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types
 	participants := getParticipantMap(channel.Participant1, channel.Participant2)
 
 	//check tx 允许非close状态下更新对方的balanceProof
-	if checkParticipantValidity(participants, partner, a.fromAddr) {
+	if !checkParticipantValidity(participants, partner, a.fromAddr) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
 
@@ -312,7 +317,7 @@ func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types
 		participants[partner].TransferredAmount = update.PartnerBalancePf.TransferredAmount
 	}
 
-	receipt := &types.Receipt{}
+	receipt := &types.Receipt{Ty:types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -354,7 +359,7 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 		return nil, lnstypes.ErrChannelCloseChallengePeriod
 	}
 
-	if checkParticipantValidity(participants, partner, a.fromAddr) {
+	if !checkParticipantValidity(participants, partner, a.fromAddr) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
 
@@ -369,7 +374,7 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 	}
 
 	channel.State = lnstypes.StateSettled
-	receipt := &types.Receipt{}
+	receipt := &types.Receipt{Ty:types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),

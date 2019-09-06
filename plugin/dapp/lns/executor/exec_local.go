@@ -11,18 +11,30 @@ import (
  */
 
 func (l *lns) ExecLocal_Open(payload *lnstypes.OpenChannel, tx *types.Transaction, receiptData *types.ReceiptData, index int) (*types.LocalDBSet, error) {
+	dbSet := &types.LocalDBSet{}
+
+	//openLog := &lnstypes.ReceiptOpen{}
+	//err := types.Decode(receiptData.Logs[0].Log, openLog)
+	//if err != nil {
+	//	elog.Error("ExecLocal_open", "DecodeLogErr", err)
+	//	return nil, err
+	//}
+	//dbSet.KV = append(dbSet.KV, &types.KeyValue{
+	//	Key:                  calcLnsLocalChannelIDKey(openLog.ChannelID),
+	//	Value:                types.Encode(&lnstypes.Channel{ChannelID:openLog.ChannelID}),
+	//})
+
+
+	return dbSet, nil
+}
+
+func (l *lns) ExecLocal_DepositChannel(payload *lnstypes.DepositChannel, tx *types.Transaction, receiptData *types.ReceiptData, index int) (*types.LocalDBSet, error) {
 	var dbSet *types.LocalDBSet
 	//implement code
 	return dbSet, nil
 }
 
-func (l *lns) ExecLocal_Deposit(payload *lnstypes.DepositChannel, tx *types.Transaction, receiptData *types.ReceiptData, index int) (*types.LocalDBSet, error) {
-	var dbSet *types.LocalDBSet
-	//implement code
-	return dbSet, nil
-}
-
-func (l *lns) ExecLocal_Withdraw(payload *lnstypes.WithdrawChannel, tx *types.Transaction, receiptData *types.ReceiptData, index int) (*types.LocalDBSet, error) {
+func (l *lns) ExecLocal_WithdrawChannel(payload *lnstypes.WithdrawChannel, tx *types.Transaction, receiptData *types.ReceiptData, index int) (*types.LocalDBSet, error) {
 	var dbSet *types.LocalDBSet
 	//implement code
 	return dbSet, nil
@@ -34,7 +46,7 @@ func (l *lns) ExecLocal_Close(payload *lnstypes.CloseChannel, tx *types.Transact
 	return dbSet, nil
 }
 
-func (l *lns) ExecLocal_Update(payload *lnstypes.UpdateBalanceProof, tx *types.Transaction, receiptData *types.ReceiptData, index int) (*types.LocalDBSet, error) {
+func (l *lns) ExecLocal_UpdateProof(payload *lnstypes.UpdateBalanceProof, tx *types.Transaction, receiptData *types.ReceiptData, index int) (*types.LocalDBSet, error) {
 	var dbSet *types.LocalDBSet
 	//implement code
 	return dbSet, nil
