@@ -24,7 +24,6 @@ func (l *lns) ExecLocal_Open(payload *lnstypes.OpenChannel, tx *types.Transactio
 	//	Value:                types.Encode(&lnstypes.Channel{ChannelID:openLog.ChannelID}),
 	//})
 
-
 	return dbSet, nil
 }
 

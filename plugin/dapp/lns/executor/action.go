@@ -77,7 +77,7 @@ func (a *action) openChannel(open *lnstypes.OpenChannel) (*types.Receipt, error)
 		Addr: open.Partner,
 	}
 
-	receipt := &types.Receipt{Ty:types.ExecOk}
+	receipt := &types.Receipt{Ty: types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   countKey,
 		Value: types.Encode(chanCount),
@@ -90,6 +90,8 @@ func (a *action) openChannel(open *lnstypes.OpenChannel) (*types.Receipt, error)
 			ChannelID:      channel.ChannelID,
 			InitialBalance: open.Amount,
 			ChainName:      types.GetTitle(),
+			IssueContract:  open.GetIssueContract(),
+			TokenSymbol:    open.GetTokenSymbol(),
 			SettleTimeOut:  open.SettleTimeout,
 		}),
 	})
@@ -137,13 +139,17 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 	if channel.State != lnstypes.StateOpen {
 		return nil, lnstypes.ErrChannelState
 	}
+	partner := getPartnerAddr(a.fromAddr, channel.Participant1.Addr, channel.Participant2.Addr)
+	if checkParticipantValidity(participants, a.fromAddr, partner) {
+		return nil, lnstypes.ErrInvalidChannelParticipants
+	}
 
 	//本次存入额度
 	depositAmount := deposit.TotalDeposit - participants[a.fromAddr].TotalDeposit
 	channel.TotalAmount += depositAmount
 	participants[a.fromAddr].TotalDeposit = deposit.TotalDeposit
 
-	receipt := &types.Receipt{Ty:types.ExecOk}
+	receipt := &types.Receipt{Ty: types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -152,9 +158,13 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 	receipt.Logs = append(receipt.Logs, &types.ReceiptLog{
 		Ty: lnstypes.TyDepositLog,
 		Log: types.Encode(&lnstypes.ReceiptDeposit{
-			TotalDeposit: deposit.TotalDeposit,
-			ChannelID:    channel.ChannelID,
-		}),
+			Chain:         types.GetTitle(),
+			IssueContract: channel.GetIssueContract(),
+			TokenSymbol:   channel.GetTokenSymbol(),
+			TotalDeposit:  deposit.TotalDeposit,
+			ChannelID:     channel.ChannelID,
+			Depositor:     a.fromAddr,
+			Partner:       partner}),
 	})
 
 	accDB, err := a.createAccountDB(channel.IssueContract, channel.TokenSymbol)
@@ -213,7 +223,7 @@ func (a *action) withdrawChannel(withdraw *lnstypes.WithdrawChannel) (*types.Rec
 	channel.TotalAmount -= withdrawAmount
 	participants[withdrawAddr].TotalWithdraw = totalWithdraw
 
-	receipt := &types.Receipt{Ty:types.ExecOk}
+	receipt := &types.Receipt{Ty: types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -224,6 +234,8 @@ func (a *action) withdrawChannel(withdraw *lnstypes.WithdrawChannel) (*types.Rec
 		Log: types.Encode(&lnstypes.ReceiptWithdraw{
 			TotalWithdraw: totalWithdraw,
 			ChannelID:     channel.ChannelID,
+			Withdrawer:    withdrawAddr,
+			Partner:       partner,
 		}),
 	})
 
@@ -277,7 +289,7 @@ func (a *action) closeChannel(close *lnstypes.CloseChannel) (*types.Receipt, err
 		participants[nonCloser].TransferredAmount = close.NonCloserBalancePf.TransferredAmount
 	}
 
-	receipt := &types.Receipt{Ty:types.ExecOk}
+	receipt := &types.Receipt{Ty: types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -286,7 +298,14 @@ func (a *action) closeChannel(close *lnstypes.CloseChannel) (*types.Receipt, err
 	receipt.Logs = append(receipt.Logs, &types.ReceiptLog{
 		Ty: lnstypes.TyCloseLog,
 		Log: types.Encode(&lnstypes.ReceiptClose{
+			TokenCanonicalId: &lnstypes.TokenCanonicalId{
+				Chain:         types.GetTitle(),
+				IssueContract: channel.GetIssueContract(),
+				TokenSymbol:   channel.GetTokenSymbol(),
+			},
 			ChannelID: channel.ChannelID,
+			Closer:    a.fromAddr,
+			Partner:   nonCloser,
 		}),
 	})
 
@@ -317,7 +336,7 @@ func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types
 		participants[partner].TransferredAmount = update.PartnerBalancePf.TransferredAmount
 	}
 
-	receipt := &types.Receipt{Ty:types.ExecOk}
+	receipt := &types.Receipt{Ty: types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -326,8 +345,15 @@ func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types
 	receipt.Logs = append(receipt.Logs, &types.ReceiptLog{
 		Ty: lnstypes.TyCloseLog,
 		Log: types.Encode(&lnstypes.ReceiptUpdate{
+			TokenCanonicalId: &lnstypes.TokenCanonicalId{
+				Chain:         types.GetTitle(),
+				IssueContract: channel.GetIssueContract(),
+				TokenSymbol:   channel.GetTokenSymbol(),
+			},
 			ChannelID: channel.ChannelID,
 			Nonce:     update.PartnerBalancePf.Nonce,
+			Partner:   partner,
+			Updater:   a.fromAddr,
 		}),
 	})
 
@@ -374,7 +400,7 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 	}
 
 	channel.State = lnstypes.StateSettled
-	receipt := &types.Receipt{Ty:types.ExecOk}
+	receipt := &types.Receipt{Ty: types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   chanKey,
 		Value: types.Encode(channel),
@@ -383,7 +409,16 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 	receipt.Logs = append(receipt.Logs, &types.ReceiptLog{
 		Ty: lnstypes.TySettleLog,
 		Log: types.Encode(&lnstypes.ReceiptSettle{
-			ChannelID: channel.ChannelID,
+			TokenCanonicalId: &lnstypes.TokenCanonicalId{
+				Chain:         types.GetTitle(),
+				IssueContract: channel.GetIssueContract(),
+				TokenSymbol:   channel.GetTokenSymbol(),
+			},
+			ChannelID:          channel.ChannelID,
+			Participant1:       partner,
+			TransferredAmount1: settle.PartnerTransferredAmount,
+			Participant2:       a.fromAddr,
+			TransferredAmount2: settle.SelfTransferredAmount,
 		}),
 	})
 
@@ -431,6 +466,13 @@ func getDBAndDecode(db dbm.KV, key []byte, msg types.Message) error {
 		return types.ErrDecode
 	}
 	return nil
+}
+
+func getPartnerAddr(self, p1, p2 string) string {
+	if self == p1 {
+		return p2
+	}
+	return p1
 }
 
 func getParticipantMap(partner1 *lnstypes.Participant, partner2 *lnstypes.Participant) map[string]*lnstypes.Participant {

@@ -65,13 +65,11 @@ message TransferAdditionData {
 }
 
 message BalanceProof {
-    int64  nonce             = 1;
-    int64  transferredAmount = 2; //累计支付的总数量
-    bytes  additionHash      = 3;
-    int64  channelID         = 4;
-    string chain             = 5; // bty,user.p.guoduo,user.p.para
-    string issueContract     = 6; // coins,token,paracross,ticket
-    string tokenSymbol       = 7; // bty,ycc,guodun,game,xxx
+    int64            nonce              = 1;
+    int64            transferredAmount  = 2; //累计支付的总数量
+    bytes            additionHash       = 3;
+    TokenCanonicalId tokenCanonicalId   = 4;
+    int64            channelID          = 5;
 }
 
 message CloseChannel {
@@ -144,6 +142,8 @@ message ReceiptDeposit {
 message ReceiptWithdraw {
     int64 channelID     = 1;
     int64 totalWithdraw = 2;
+    string withdrawer   = 4;
+    string partner      = 5;
 }
 
 message ReceiptClose {
@@ -156,8 +156,9 @@ message ReceiptClose {
 message ReceiptUpdate {
     TokenCanonicalId TokenCanonicalId = 1;
     string           updater          = 2;
-    int64            channelID        = 3;
-    int64            nonce            = 4;
+    string           partner          = 3;
+    int64            channelID        = 4;
+    int64            nonce            = 5;
 }
 
 message ReceiptSettle {
