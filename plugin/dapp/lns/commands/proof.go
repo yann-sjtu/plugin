@@ -26,7 +26,7 @@ func proofCmd() *cobra.Command {
 	cmd.AddCommand(
 		withdrawProofCmd(),
 		balanceProofCmd(),
-
+		decodeProofCmd(),
 		signProofCmd(),
 	)
 
@@ -93,6 +93,10 @@ func balanceProofCmd() *cobra.Command {
 	cmd.Flags().Int64P("channelID", "c", 0, "channel id")
 	cmd.Flags().Int64P("nonce", "n", 0, "transfer nonce")
 	cmd.Flags().Float64P("amount", "a", 0, "transferred amount")
+	cmd.Flags().StringP("additionHash", "x", "", "addition hash, hex string")
+	cmd.Flags().StringP("title", "t", "bityuan", "chain title, default bityuan")
+	cmd.Flags().StringP("assetExec", "e", "coins", "asset executor, default coins")
+	cmd.Flags().StringP("assetSymbol", "s", "bty", "asset executor, default bty")
 
 	cmd.MarkFlagRequired("channelID")
 	cmd.MarkFlagRequired("nonce")
@@ -107,6 +111,17 @@ func balanceProof(cmd *cobra.Command, args []string) {
 	nonce, _ := cmd.Flags().GetInt64("nonce")
 	amountInt64 := cmdtypes.FormatAmountDisplay2Value(transferredAmount)
 
+	additionHashHex, _ := cmd.Flags().GetString("additionHash")
+	title, _ := cmd.Flags().GetString("title")
+	exec, _ := cmd.Flags().GetString("assetExec")
+	symbol, _ := cmd.Flags().GetString("assetSymbol")
+
+	additionHash, err := common.FromHex(additionHashHex)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "ErrDecodeHexAdditionHash:"+err.Error())
+		return
+	}
+
 	if channelID <= 0 {
 		fmt.Fprintln(os.Stderr, "ErrChannelID")
 		return
@@ -116,6 +131,12 @@ func balanceProof(cmd *cobra.Command, args []string) {
 		Nonce:             nonce,
 		TransferredAmount: amountInt64,
 		ChannelID:         channelID,
+		TokenCanonicalId: &lnsty.TokenCanonicalId{
+			Chain:         title,
+			IssueContract: exec,
+			TokenSymbol:   symbol,
+		},
+		AdditionHash: additionHash[:],
 	}
 	fmt.Println(common.ToHex(types.Encode(proof)))
 }

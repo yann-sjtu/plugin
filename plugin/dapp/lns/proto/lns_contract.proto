@@ -52,7 +52,7 @@ message WithdrawConfirmProof {
 
 message WithdrawConfirmProofSigned {
     int64                channelID            = 1;
-    WithdrawConfirmProof WithdrawConfirmProof = 2;
+    WithdrawConfirmProof withdrawConfirmProof = 2;
     Signature            partnerSignature     = 3;
     Signature            withdrawerSignature  = 4;
 }
@@ -65,11 +65,11 @@ message TransferAdditionData {
 }
 
 message BalanceProof {
-    int64            nonce              = 1;
-    int64            transferredAmount  = 2; //累计支付的总数量
-    bytes            additionHash       = 3;
-    TokenCanonicalId tokenCanonicalId   = 4;
-    int64            channelID          = 5;
+    int64            nonce             = 1;
+    int64            transferredAmount = 2; //累计支付的总数量
+    bytes            additionHash      = 3;
+    TokenCanonicalId tokenCanonicalId  = 4;
+    int64            channelID         = 5;
 }
 
 message CloseChannel {
@@ -99,15 +99,15 @@ message Participant {
 }
 
 message Channel {
-    string      issueContract  = 1;
-    string      tokenSymbol    = 2;
-    int64       channelID      = 3;
-    int64       totalAmount    = 4;
-    int32       state          = 5;
-    Participant participant1   = 6;
-    Participant participant2   = 7;
-    string      closer         = 8;
-    int64       settleBlockNum = 9;
+    string      issueContract     = 1;
+    string      tokenSymbol       = 2;
+    int64       channelID         = 3;
+    int64       totalAmount       = 4;
+    int32       state             = 5;
+    Participant participant1      = 6;
+    Participant participant2      = 7;
+    string      closer            = 8;
+    int64       settleBlockHeight = 9;
 }
 
 message ChannelCount {
@@ -130,9 +130,9 @@ message ReceiptOpen {
 }
 
 message ReceiptDeposit {
-    string Chain         = 1;
-    string IssueContract = 2;
-    string TokenSymbol   = 3;
+    string chain         = 1;
+    string issueContract = 2;
+    string tokenSymbol   = 3;
     int64  channelID     = 4;
     int64  totalDeposit  = 5;
     string depositor     = 6;
@@ -140,21 +140,21 @@ message ReceiptDeposit {
 }
 
 message ReceiptWithdraw {
-    int64 channelID     = 1;
-    int64 totalWithdraw = 2;
-    string withdrawer   = 4;
-    string partner      = 5;
+    int64  channelID     = 1;
+    int64  totalWithdraw = 2;
+    string withdrawer    = 4;
+    string partner       = 5;
 }
 
 message ReceiptClose {
-    TokenCanonicalId TokenCanonicalId = 1;
+    TokenCanonicalId tokenCanonicalId = 1;
     int64            channelID        = 2;
     string           closer           = 3;
     string           partner          = 4;
 }
 
 message ReceiptUpdate {
-    TokenCanonicalId TokenCanonicalId = 1;
+    TokenCanonicalId tokenCanonicalId = 1;
     string           updater          = 2;
     string           partner          = 3;
     int64            channelID        = 4;
@@ -162,7 +162,7 @@ message ReceiptUpdate {
 }
 
 message ReceiptSettle {
-    TokenCanonicalId TokenCanonicalId   = 1;
+    TokenCanonicalId tokenCanonicalId   = 1;
     int64            channelID          = 2;
     string           participant1       = 3;
     int64            transferredAmount1 = 4;

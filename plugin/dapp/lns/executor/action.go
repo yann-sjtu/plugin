@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	minSettleTimeout = 100
+	minSettleTimeout = 10
 	maxSettleTimeout = 10000
 )
 
@@ -68,7 +68,7 @@ func (a *action) openChannel(open *lnstypes.OpenChannel) (*types.Receipt, error)
 
 	channel.IssueContract = open.IssueContract
 	channel.TokenSymbol = open.TokenSymbol
-	channel.SettleBlockNum = int64(open.SettleTimeout)
+	channel.SettleBlockHeight = int64(open.SettleTimeout)
 	channel.State = lnstypes.StateOpen
 	channel.Participant1 = &lnstypes.Participant{
 		Addr: a.fromAddr,
@@ -140,7 +140,7 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 		return nil, lnstypes.ErrChannelState
 	}
 	partner := getPartnerAddr(a.fromAddr, channel.Participant1.Addr, channel.Participant2.Addr)
-	if checkParticipantValidity(participants, a.fromAddr, partner) {
+	if !checkParticipantValidity(participants, a.fromAddr, partner) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
 
@@ -282,10 +282,11 @@ func (a *action) closeChannel(close *lnstypes.CloseChannel) (*types.Receipt, err
 
 	channel.State = lnstypes.StateClosed
 	channel.Closer = a.fromAddr
-	channel.SettleBlockNum += a.height
+	channel.SettleBlockHeight += a.height
 
 	if close.NonCloserBalancePf.Nonce > participants[nonCloser].Nonce {
 		//记录非关闭方的的总转移额度
+		participants[nonCloser].Nonce = close.NonCloserBalancePf.Nonce
 		participants[nonCloser].TransferredAmount = close.NonCloserBalancePf.TransferredAmount
 	}
 
@@ -333,6 +334,7 @@ func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types
 
 	if update.PartnerBalancePf.Nonce > participants[partner].Nonce {
 		//更新对方的转移额度
+		participants[partner].Nonce = update.PartnerBalancePf.Nonce
 		participants[partner].TransferredAmount = update.PartnerBalancePf.TransferredAmount
 	}
 
@@ -343,7 +345,7 @@ func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types
 	})
 
 	receipt.Logs = append(receipt.Logs, &types.ReceiptLog{
-		Ty: lnstypes.TyCloseLog,
+		Ty: lnstypes.TyUpdateProofLog,
 		Log: types.Encode(&lnstypes.ReceiptUpdate{
 			TokenCanonicalId: &lnstypes.TokenCanonicalId{
 				Chain:         types.GetTitle(),
@@ -381,7 +383,7 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 	if channel.State != lnstypes.StateClosed {
 		return nil, lnstypes.ErrChannelState
 	}
-	if channel.SettleBlockNum > a.height {
+	if channel.SettleBlockHeight > a.height {
 		return nil, lnstypes.ErrChannelCloseChallengePeriod
 	}
 
