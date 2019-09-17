@@ -200,7 +200,7 @@ func (a *action) withdrawChannel(withdraw *lnstypes.WithdrawChannel) (*types.Rec
 	}
 
 	participants := getParticipantMap(channel.Participant1, channel.Participant2)
-	withdrawAddr := address.PubKeyToAddr(withdraw.GetWithdrawerSignature().GetPubkey())
+	withdrawAddr := a.fromAddr
 	partner := address.PubKeyToAddr(withdraw.GetPartnerSignature().GetPubkey())
 	totalWithdraw := withdraw.GetProof().GetTotalWithdraw()
 	//本次提取额度

@@ -22,9 +22,9 @@ func openChannelCmd() *cobra.Command {
 		Run:   openChannel,
 	}
 	cmd.Flags().StringP("assetExec", "e", "coins", "asset issue contract, default coins")
-	cmd.Flags().StringP("assetSymbol", "s", "", "asset symbol, default coins symbol")
+	cmd.Flags().StringP("assetSymbol", "s", "bty", "asset symbol, default bty")
 	cmd.Flags().StringP("partner", "p", "", "partner addr")
-	cmd.Flags().Int32P("settleTimeout", "t", 100, "settle timeout block num, default 100 block num")
+	cmd.Flags().Int32P("settleTimeout", "t", 0, "settle timeout block num, default min settle block num")
 	cmd.Flags().Float64P("amount", "a", 0, "initial deposit amount")
 	cmd.MarkFlagRequired("partner")
 	return cmd
@@ -132,8 +132,6 @@ func withdrawChannelCmd() *cobra.Command {
 
 	cmd.Flags().Int64P("channelID", "c", 0, "channel id")
 	cmd.Flags().StringP("proof", "d", "", "withdraw proof hex data")
-
-	cmd.Flags().StringP("withdrawerSign", "w", "", "withdrawer signature hex data")
 	cmd.Flags().StringP("partnerSign", "p", "", "partner signature hex data")
 
 	cmd.MarkFlagRequired("channelID")
@@ -147,29 +145,23 @@ func withdrawChannel(cmd *cobra.Command, args []string) {
 	rpcLaddr, _ := cmd.Flags().GetString("rpc_laddr")
 	channelID, _ := cmd.Flags().GetInt64("channelID")
 	proof, _ := cmd.Flags().GetString("proof")
-	ws, _ := cmd.Flags().GetString("withdrawerSign")
 	ps, _ := cmd.Flags().GetString("partnerSign")
 
 	proofByte, _ := common.FromHex(proof)
-	wsByte, _ := common.FromHex(ws)
 	psByte, _ := common.FromHex(ps)
 	withdrawProof := &lnsty.WithdrawConfirmProof{}
-	sign1 := &types.Signature{}
 	sign2 := &types.Signature{}
-	err1 := types.Decode(wsByte, sign1)
 	err2 := types.Decode(psByte, sign2)
 	err3 := types.Decode(proofByte, withdrawProof)
 
-	if err1 != nil || err2 != nil || err3 != nil {
-		fmt.Fprintln(os.Stderr, "ErrParams-", "withdrawProofErr:", err3,
-			"-withdrawSignErr:", err1, "-partnerSignErr:", err2)
+	if err2 != nil || err3 != nil {
+		fmt.Fprintln(os.Stderr, "ErrParams-", "withdrawProofErr:", err3, "-partnerSignErr:", err2)
 		return
 	}
 
 	withdraw := &lnsty.WithdrawChannel{
 		ChannelID:           channelID,
 		Proof:               withdrawProof,
-		WithdrawerSignature: sign1,
 		PartnerSignature:    sign2,
 	}
 

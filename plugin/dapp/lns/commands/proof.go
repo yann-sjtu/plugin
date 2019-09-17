@@ -43,7 +43,10 @@ func withdrawProofCmd() *cobra.Command {
 	cmd.Flags().Int64P("channelID", "c", 0, "channel id")
 	cmd.Flags().StringP("withdrawer", "w", "", "withdrawer addr")
 	cmd.Flags().Float64P("totalWithdraw", "t", 0, "total withdraw")
-	cmd.Flags().Int64P("expiration", "e", 0, "withdraw expiration block")
+	cmd.Flags().Int64P("expiration", "b", 0, "withdraw expiration block height")
+	cmd.Flags().StringP("title", "t", "bityuan", "chain title, default bityuan")
+	cmd.Flags().StringP("assetExec", "e", "coins", "asset executor, default coins")
+	cmd.Flags().StringP("assetSymbol", "s", "bty", "asset executor, default bty")
 
 	cmd.MarkFlagRequired("channelID")
 	cmd.MarkFlagRequired("totalWithdraw")
@@ -60,6 +63,9 @@ func withdrawProof(cmd *cobra.Command, args []string) {
 	channelID, _ := cmd.Flags().GetInt64("channelID")
 	expiration, _ := cmd.Flags().GetInt64("expiration")
 	amountInt64 := cmdtypes.FormatAmountDisplay2Value(totalWithdraw)
+	title, _ := cmd.Flags().GetString("title")
+	exec, _ := cmd.Flags().GetString("assetExec")
+	symbol, _ := cmd.Flags().GetString("assetSymbol")
 
 	if address.CheckAddress(withdrawer) != nil {
 		fmt.Fprintln(os.Stderr, "ErrWithdrawerAddress")
@@ -79,6 +85,11 @@ func withdrawProof(cmd *cobra.Command, args []string) {
 		Withdrawer:      withdrawer,
 		TotalWithdraw:   amountInt64,
 		ExpirationBlock: expiration,
+		TokenCanonicalId: &lnsty.TokenCanonicalId{
+			Chain:         title,
+			IssueContract: exec,
+			TokenSymbol:   symbol,
+		},
 	}
 	fmt.Println(common.ToHex(types.Encode(proof)))
 }

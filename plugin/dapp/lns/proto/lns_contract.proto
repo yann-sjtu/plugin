@@ -40,22 +40,22 @@ message WithdrawChannel {
     int64                channelID           = 1;
     WithdrawConfirmProof proof               = 2;
     Signature            partnerSignature    = 3;
-    Signature            withdrawerSignature = 4;
 }
 
 message WithdrawConfirmProof {
-    int64  channelID       = 1;
-    string withdrawer      = 2;
-    int64  totalWithdraw   = 3;
-    int64  expirationBlock = 4;
+    TokenCanonicalId tokenCanonicalId = 1;
+    int64            channelID        = 2;
+    string           withdrawer       = 3;
+    int64            totalWithdraw    = 4;
+    int64            expirationBlock  = 5;
 }
 
-message WithdrawConfirmProofSigned {
-    int64                channelID            = 1;
-    WithdrawConfirmProof withdrawConfirmProof = 2;
-    Signature            partnerSignature     = 3;
-    Signature            withdrawerSignature  = 4;
-}
+// message WithdrawConfirmProofSigned {
+//    int64                channelID            = 1;
+//    WithdrawConfirmProof withdrawConfirmProof = 2;
+//    Signature            partnerSignature     = 3;
+//    Signature            withdrawerSignature  = 4;
+//}
 
 message TransferAdditionData {
     string paymentID = 1;

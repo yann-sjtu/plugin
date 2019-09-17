@@ -89,17 +89,17 @@ func (l *lns) CheckTx(tx *types.Transaction, index int) error {
 		proof := withdraw.GetProof()
 		if withdraw == nil || withdraw.ChannelID <= 0 ||
 			proof == nil || proof.TotalWithdraw <= 0 ||
-			withdraw.PartnerSignature == nil || withdraw.WithdrawerSignature == nil {
+			withdraw.PartnerSignature == nil {
 			return types.ErrInvalidParam
 		}
+		if fromAddr != withdraw.GetProof().GetWithdrawer() {
+			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "err", lnstypes.ErrWithdrawSign)
+			return lnstypes.ErrWithdrawSign
+		}
 		if proof.GetExpirationBlock() <= l.GetHeight() {
-			elog.Error("CheckWithdrawExpiration", "ChannelID", proof.GetChannelID(), "currentHeight", l.GetHeight(),
+			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "currentHeight", l.GetHeight(),
 				"expireBlock", proof.GetExpirationBlock())
 			return lnstypes.ErrWithdrawBlockExpiration
-		}
-		if err := checkSign(proof, withdraw.WithdrawerSignature); err != nil {
-			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "CheckWithdrawSignErr", err)
-			return lnstypes.ErrWithdrawSign
 		}
 
 		if err := checkSign(proof, withdraw.PartnerSignature); err != nil {
