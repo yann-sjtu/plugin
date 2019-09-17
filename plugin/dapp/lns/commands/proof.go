@@ -42,7 +42,7 @@ func withdrawProofCmd() *cobra.Command {
 
 	cmd.Flags().Int64P("channelID", "c", 0, "channel id")
 	cmd.Flags().StringP("withdrawer", "w", "", "withdrawer addr")
-	cmd.Flags().Float64P("totalWithdraw", "t", 0, "total withdraw")
+	cmd.Flags().Float64P("totalWithdraw", "a", 0, "total withdraw amount")
 	cmd.Flags().Int64P("expiration", "b", 0, "withdraw expiration block height")
 	cmd.Flags().StringP("title", "t", "bityuan", "chain title, default bityuan")
 	cmd.Flags().StringP("assetExec", "e", "coins", "asset executor, default coins")

@@ -80,7 +80,7 @@ func depositChannelCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Int64P("channelID", "c", 0, "channel id")
-	cmd.Flags().Float64P("totalDeposit", "t", 0, "total deposit")
+	cmd.Flags().Float64P("totalDeposit", "a", 0, "total deposit amount")
 	cmd.MarkFlagRequired("channelID")
 	cmd.MarkFlagRequired("totalDeposit")
 	return cmd
@@ -136,7 +136,6 @@ func withdrawChannelCmd() *cobra.Command {
 
 	cmd.MarkFlagRequired("channelID")
 	cmd.MarkFlagRequired("proof")
-	cmd.MarkFlagRequired("withdrawerSign")
 	cmd.MarkFlagRequired("partnerSign")
 	return cmd
 }
@@ -305,8 +304,8 @@ func settleChannelCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Int64P("channelID", "c", 0, "channel id")
-	cmd.Flags().Float64P("selfTransferredAmount", "s", 0, "self transferred amount")
-	cmd.Flags().Float64P("partnerTransferredAmount", "p", 0, "partner transferred amount")
+	cmd.Flags().Float64P("selfTransAmount", "s", 0, "self transferred amount")
+	cmd.Flags().Float64P("partnerTransAmount", "p", 0, "partner transferred amount")
 
 	cmd.MarkFlagRequired("channelID")
 	cmd.MarkFlagRequired("selfTransferredAmount")
@@ -317,8 +316,8 @@ func settleChannelCmd() *cobra.Command {
 func settleChannel(cmd *cobra.Command, args []string) {
 	rpcLaddr, _ := cmd.Flags().GetString("rpc_laddr")
 	channelID, _ := cmd.Flags().GetInt64("channelID")
-	selfAmount, _ := cmd.Flags().GetFloat64("selfTransferredAmount")
-	partnerAmount, _ := cmd.Flags().GetFloat64("partnerTransferredAmount")
+	selfAmount, _ := cmd.Flags().GetFloat64("selfTransAmount")
+	partnerAmount, _ := cmd.Flags().GetFloat64("partnerTransAmount")
 
 	selfAmountInt64 := cmdtypes.FormatAmountDisplay2Value(selfAmount)
 	partnerAmountInt64 := cmdtypes.FormatAmountDisplay2Value(partnerAmount)
