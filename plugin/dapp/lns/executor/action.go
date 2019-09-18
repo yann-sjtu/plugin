@@ -102,18 +102,16 @@ func (a *action) openChannel(open *lnstypes.OpenChannel) (*types.Receipt, error)
 	}
 
 	//channel的资产统一放在执行器账户的执行器地址上
-	if open.Amount > 0 {
-		channel.TotalAmount += open.Amount
-		channel.Participant1.TotalDeposit += open.Amount
-		transReceipt, err := accDB.ExecTransfer(a.fromAddr, a.execAddr, a.execAddr, open.Amount)
-		if err != nil {
-			elog.Error("ExecOpenChannel", "execTransferErr", err)
-			return nil, err
-		}
-
-		receipt.KV = append(receipt.KV, transReceipt.KV...)
-		receipt.Logs = append(receipt.Logs, transReceipt.Logs...)
+	channel.TotalAmount += open.Amount
+	channel.Participant1.TotalDeposit += open.Amount
+	transReceipt, err := accDB.ExecTransfer(a.fromAddr, a.execAddr, a.execAddr, open.Amount)
+	if err != nil {
+		elog.Error("ExecOpenChannel", "execTransferErr", err)
+		return nil, err
 	}
+
+	receipt.KV = append(receipt.KV, transReceipt.KV...)
+	receipt.Logs = append(receipt.Logs, transReceipt.Logs...)
 	receipt.KV = append(receipt.KV, &types.KeyValue{
 		Key:   calcLnsChannelIDKey(channel.ChannelID),
 		Value: types.Encode(channel),
@@ -134,7 +132,8 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 		return nil, err
 	}
 	participants := getParticipantMap(channel.Participant1, channel.Participant2)
-
+	//本次存入额度
+	depositAmount := deposit.TotalDeposit - participants[a.fromAddr].TotalDeposit
 	//check tx
 	if channel.State != lnstypes.StateOpen {
 		return nil, lnstypes.ErrChannelState
@@ -143,9 +142,10 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 	if !checkParticipantValidity(participants, a.fromAddr, partner) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
+	if depositAmount <= 0 {
+		return nil, lnstypes.ErrTotalDepositAmount
+	}
 
-	//本次存入额度
-	depositAmount := deposit.TotalDeposit - participants[a.fromAddr].TotalDeposit
 	channel.TotalAmount += depositAmount
 	participants[a.fromAddr].TotalDeposit = deposit.TotalDeposit
 
@@ -315,19 +315,23 @@ func (a *action) closeChannel(close *lnstypes.CloseChannel) (*types.Receipt, err
 
 func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types.Receipt, error) {
 
-	elog.Debug("ExecUpdateChannel", "ChannelID", update.ChannelID)
+	elog.Debug("ExecUpdateChannelProof", "ChannelID", update.ChannelID)
 	channel := &lnstypes.Channel{}
 	chanKey := calcLnsChannelIDKey(update.ChannelID)
 
 	err := getDBAndDecode(a.db, chanKey, channel)
 	if err != nil {
-		elog.Error("ExecUpdateChannel", "GetChannelErr", err)
+		elog.Error("ExecUpdateChannelProof", "GetChannelErr", err)
 		return nil, err
 	}
 	partner := address.PubKeyToAddr(update.GetPartnerSignature().GetPubkey())
 	participants := getParticipantMap(channel.Participant1, channel.Participant2)
 
-	//check tx 允许非close状态下更新对方的balanceProof
+	//check tx 允许非close状态下更新对方的balanceProof, 但是不能超过挑战期
+	if channel.State == lnstypes.StateClosed && channel.SettleBlockHeight <= a.height {
+		elog.Error("ExecUpdateChannelProofErr", "channelSettleHeight", channel.SettleBlockHeight, "currentHeight", a.height)
+		return nil, lnstypes.ErrChannelCloseChallengePeriod
+	}
 	if !checkParticipantValidity(participants, partner, a.fromAddr) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
@@ -370,7 +374,7 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 
 	err := getDBAndDecode(a.db, chanKey, channel)
 	if err != nil {
-		elog.Error("ExecWithdrawChannel", "GetChannelErr", err)
+		elog.Error("ExecSettleChannel", "GetChannelErr", err)
 		return nil, err
 	}
 	partner := channel.Participant1.Addr
@@ -384,22 +388,20 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 		return nil, lnstypes.ErrChannelState
 	}
 	if channel.SettleBlockHeight > a.height {
+		elog.Error("ExecSettleChannelErr", "currHeight", a.height, "settleHeight", channel.SettleBlockHeight)
 		return nil, lnstypes.ErrChannelCloseChallengePeriod
 	}
 
 	if !checkParticipantValidity(participants, partner, a.fromAddr) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
-
-	myFinalTransAmount := settle.SelfTransferredAmount - settle.PartnerTransferredAmount
-	mySettleAmount := participants[a.fromAddr].TotalDeposit -
-		participants[a.fromAddr].TotalWithdraw - myFinalTransAmount
+	//本方相对总转移额度
+	selfFinalTransAmount := participants[a.fromAddr].TransferredAmount - participants[partner].TransferredAmount
+	//以下两个结算额度加起来恒等于通道的剩余总额度, 不对某一方结算额度是否负值检查, 结算应该总是成功
+	selfSettleAmount := participants[a.fromAddr].TotalDeposit -
+		participants[a.fromAddr].TotalWithdraw - selfFinalTransAmount
 	partnerSettleAmount := participants[partner].TotalDeposit -
-		participants[partner].TotalWithdraw + myFinalTransAmount
-
-	if mySettleAmount < 0 || partnerSettleAmount < 0 {
-		return nil, lnstypes.ErrInvalidTransferredAmount
-	}
+		participants[partner].TotalWithdraw + selfFinalTransAmount
 
 	channel.State = lnstypes.StateSettled
 	receipt := &types.Receipt{Ty: types.ExecOk}
@@ -417,10 +419,10 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 				TokenSymbol:   channel.GetTokenSymbol(),
 			},
 			ChannelID:          channel.ChannelID,
-			Participant1:       partner,
-			TransferredAmount1: settle.PartnerTransferredAmount,
-			Participant2:       a.fromAddr,
-			TransferredAmount2: settle.SelfTransferredAmount,
+			Participant1:       a.fromAddr,
+			TransferredAmount1: participants[a.fromAddr].TransferredAmount,
+			Participant2:       partner,
+			TransferredAmount2: participants[partner].TransferredAmount,
 		}),
 	})
 
@@ -431,8 +433,8 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 	}
 
 	//结算自己的账户, 从通道地址结算
-	if mySettleAmount > 0 {
-		transReceipt, err := accDB.ExecTransfer(a.execAddr, a.fromAddr, a.execAddr, mySettleAmount)
+	if selfSettleAmount > 0 {
+		transReceipt, err := accDB.ExecTransfer(a.execAddr, a.fromAddr, a.execAddr, selfSettleAmount)
 		if err != nil {
 			elog.Error("ExecSettleChannel", "execTransferErr", err)
 			return nil, err
