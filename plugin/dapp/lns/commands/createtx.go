@@ -27,6 +27,7 @@ func openChannelCmd() *cobra.Command {
 	cmd.Flags().Int32P("settleTimeout", "t", 0, "settle timeout block num, default min settle block num")
 	cmd.Flags().Float64P("amount", "a", 0, "initial deposit amount")
 	cmd.MarkFlagRequired("partner")
+	cmd.MarkFlagRequired("amount")
 	return cmd
 }
 
@@ -41,6 +42,10 @@ func openChannel(cmd *cobra.Command, args []string) {
 
 	if exec == "" || (exec != "coins" && symbol == "") {
 		fmt.Fprintln(os.Stderr, "ErrAssetExecOrSymbolParams")
+		return
+	}
+	if amountInt64 <= 0 {
+		fmt.Fprintln(os.Stderr, "ErrAmount")
 		return
 	}
 	if address.CheckAddress(partner) != nil {
@@ -159,9 +164,9 @@ func withdrawChannel(cmd *cobra.Command, args []string) {
 	}
 
 	withdraw := &lnsty.WithdrawChannel{
-		ChannelID:           channelID,
-		Proof:               withdrawProof,
-		PartnerSignature:    sign2,
+		ChannelID:        channelID,
+		Proof:            withdrawProof,
+		PartnerSignature: sign2,
 	}
 
 	payLoad, err := types.PBToJSON(withdraw)
@@ -304,28 +309,16 @@ func settleChannelCmd() *cobra.Command {
 	}
 
 	cmd.Flags().Int64P("channelID", "c", 0, "channel id")
-	cmd.Flags().Float64P("selfTransAmount", "s", 0, "self transferred amount")
-	cmd.Flags().Float64P("partnerTransAmount", "p", 0, "partner transferred amount")
-
 	cmd.MarkFlagRequired("channelID")
-	cmd.MarkFlagRequired("selfTransferredAmount")
-	cmd.MarkFlagRequired("partnerTransferredAmount")
 	return cmd
 }
 
 func settleChannel(cmd *cobra.Command, args []string) {
 	rpcLaddr, _ := cmd.Flags().GetString("rpc_laddr")
 	channelID, _ := cmd.Flags().GetInt64("channelID")
-	selfAmount, _ := cmd.Flags().GetFloat64("selfTransAmount")
-	partnerAmount, _ := cmd.Flags().GetFloat64("partnerTransAmount")
-
-	selfAmountInt64 := cmdtypes.FormatAmountDisplay2Value(selfAmount)
-	partnerAmountInt64 := cmdtypes.FormatAmountDisplay2Value(partnerAmount)
 
 	settle := &lnsty.Settle{
-		ChannelID:                channelID,
-		SelfTransferredAmount:    selfAmountInt64,
-		PartnerTransferredAmount: partnerAmountInt64,
+		ChannelID: channelID,
 	}
 
 	payLoad, err := types.PBToJSON(settle)

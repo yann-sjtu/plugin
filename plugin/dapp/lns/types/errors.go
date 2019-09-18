@@ -12,4 +12,6 @@ var (
 	ErrWithdrawBlockExpiration     = errors.New("ErrWithdrawBlockExpiration")
 	ErrWithdrawSign                = errors.New("ErrWithdrawSign")
 	ErrPartnerSign                 = errors.New("ErrPartnerSign")
+	ErrTotalDepositAmount          = errors.New("ErrTotalDepositAmount")
+	ErrChannelInfoNotMatch         = errors.New("ErrChannelInfoNotMatch")
 )

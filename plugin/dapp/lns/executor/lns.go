@@ -59,7 +59,7 @@ func (l *lns) CheckTx(tx *types.Transaction, index int) error {
 	lnsAction := &lnstypes.LnsAction{}
 	err := types.Decode(tx.Payload, lnsAction)
 	if err != nil {
-		return types.ErrDecode
+		return types.ErrActionNotSupport
 	}
 	fromAddr := tx.From()
 
@@ -67,8 +67,9 @@ func (l *lns) CheckTx(tx *types.Transaction, index int) error {
 
 	case lnstypes.TyOpenAction:
 		open := lnsAction.GetOpen()
+		//amount必须大于0, 进行链上实际转账,可以校验token是否非法, 否则如果是非法的token, 会导致开辟一个无效channel, 占用资源
 		if open == nil || open.Partner == "" || open.IssueContract == "" ||
-			(open.IssueContract != "coins" && open.TokenSymbol == "") {
+			(open.IssueContract != "coins" && open.TokenSymbol == "") && open.GetAmount() <= 0 {
 			return types.ErrInvalidParam
 		}
 
@@ -92,6 +93,13 @@ func (l *lns) CheckTx(tx *types.Transaction, index int) error {
 			withdraw.PartnerSignature == nil {
 			return types.ErrInvalidParam
 		}
+
+		//balance proof的channel信息必须匹配(包括id和链名称一致), 否则会导致利用其他通道的数据进行攻击
+		if withdraw.GetChannelID() != proof.GetChannelID() ||
+			proof.GetTokenCanonicalId().GetChain() != types.GetTitle() {
+			return lnstypes.ErrChannelInfoNotMatch
+		}
+
 		if fromAddr != withdraw.GetProof().GetWithdrawer() {
 			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "err", lnstypes.ErrWithdrawSign)
 			return lnstypes.ErrWithdrawSign
@@ -113,6 +121,12 @@ func (l *lns) CheckTx(tx *types.Transaction, index int) error {
 			close.NonCloserBalancePf.TransferredAmount < 0 {
 			return types.ErrInvalidParam
 		}
+		//balance proof的channel信息必须匹配(包括id和链名称一致), 否则会导致利用其他通道的数据进行攻击
+		if close.GetChannelID() != close.GetNonCloserBalancePf().GetChannelID() ||
+			close.GetNonCloserBalancePf().GetTokenCanonicalId().GetChain() != types.GetTitle() {
+			return lnstypes.ErrChannelInfoNotMatch
+		}
+
 		//verify signature
 		if err := checkSign(close.GetNonCloserBalancePf(), close.GetNonCloserSignature()); err != nil {
 			elog.Error("CheckCloseChannelTx", "ChannelID", close.GetChannelID(), "CheckNonCloserSignErr", err)
@@ -125,6 +139,13 @@ func (l *lns) CheckTx(tx *types.Transaction, index int) error {
 			update.PartnerBalancePf.TransferredAmount < 0 {
 			return types.ErrInvalidParam
 		}
+
+		//balance proof的channel信息必须匹配(包括id和链名称一致), 否则会导致利用其他通道的数据进行攻击
+		if update.GetChannelID() != update.GetPartnerBalancePf().GetChannelID() ||
+			update.GetPartnerBalancePf().GetTokenCanonicalId().GetChain() != types.GetTitle() {
+			return lnstypes.ErrChannelInfoNotMatch
+		}
+
 		//verify signature
 		if err := checkSign(update.GetPartnerBalancePf(), update.GetPartnerSignature()); err != nil {
 			elog.Error("CheckUpdateProofTx", "ChannelID", update.GetChannelID(), "CheckPartnerSignErr", err)
@@ -132,8 +153,7 @@ func (l *lns) CheckTx(tx *types.Transaction, index int) error {
 		}
 	case lnstypes.TySettleAction:
 		settle := lnsAction.GetSettle()
-		if settle == nil || settle.ChannelID <= 0 ||
-			settle.PartnerTransferredAmount < 0 || settle.SelfTransferredAmount < 0 {
+		if settle == nil || settle.ChannelID <= 0 {
 			return types.ErrInvalidParam
 		}
 	default:

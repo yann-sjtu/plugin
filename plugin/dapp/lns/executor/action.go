@@ -397,11 +397,18 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 	}
 	//本方相对总转移额度
 	selfFinalTransAmount := participants[a.fromAddr].TransferredAmount - participants[partner].TransferredAmount
-	//以下两个结算额度加起来恒等于通道的剩余总额度, 不对某一方结算额度是否负值检查, 结算应该总是成功
+	//以下两个结算额度加起来恒等于通道的剩余总额度
 	selfSettleAmount := participants[a.fromAddr].TotalDeposit -
 		participants[a.fromAddr].TotalWithdraw - selfFinalTransAmount
 	partnerSettleAmount := participants[partner].TotalDeposit -
 		participants[partner].TotalWithdraw + selfFinalTransAmount
+
+	//结算应该总是成功, 不对某一方结算额度做具体限制, 但必须保证总额度不超过通道额度
+	if selfSettleAmount < 0 {
+		partnerSettleAmount += selfSettleAmount
+	} else if partnerSettleAmount < 0 {
+		selfSettleAmount += partnerSettleAmount
+	}
 
 	channel.State = lnstypes.StateSettled
 	receipt := &types.Receipt{Ty: types.ExecOk}

@@ -86,8 +86,6 @@ message UpdateBalanceProof {
 
 message Settle {
     int64 channelID                = 1;
-    int64 selfTransferredAmount    = 2;
-    int64 partnerTransferredAmount = 3;
 }
 
 message Participant {
