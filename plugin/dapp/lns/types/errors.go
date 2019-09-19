@@ -14,4 +14,5 @@ var (
 	ErrPartnerSign                 = errors.New("ErrPartnerSign")
 	ErrTotalDepositAmount          = errors.New("ErrTotalDepositAmount")
 	ErrChannelInfoNotMatch         = errors.New("ErrChannelInfoNotMatch")
+	ErrBalanceProofNonce           = errors.New("ErrBalanceProofNonce")
 )

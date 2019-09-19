@@ -335,12 +335,14 @@ func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types
 	if !checkParticipantValidity(participants, partner, a.fromAddr) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
-
-	if update.PartnerBalancePf.Nonce > participants[partner].Nonce {
-		//更新对方的转移额度
-		participants[partner].Nonce = update.PartnerBalancePf.Nonce
-		participants[partner].TransferredAmount = update.PartnerBalancePf.TransferredAmount
+	if update.PartnerBalancePf.Nonce <= participants[partner].Nonce {
+		elog.Error("ExecUpdateChannelProof", "currNonce", participants[partner].Nonce, "errNonce", update.PartnerBalancePf.Nonce)
+		return nil, lnstypes.ErrBalanceProofNonce
 	}
+
+	//更新对方的转移额度
+	participants[partner].Nonce = update.PartnerBalancePf.Nonce
+	participants[partner].TransferredAmount = update.PartnerBalancePf.TransferredAmount
 
 	receipt := &types.Receipt{Ty: types.ExecOk}
 	receipt.KV = append(receipt.KV, &types.KeyValue{
