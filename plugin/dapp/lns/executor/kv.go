@@ -1,7 +1,7 @@
 package executor
 
 import (
-	"fmt"
+	"github.com/33cn/chain33/system/dapp"
 )
 
 /*
@@ -23,10 +23,10 @@ func calcLnsChannelCountKey() []byte {
 
 func calcLnsChannelIDKey(channelID int64) []byte {
 
-	return []byte(KeyPrefixStateDB + "channelID-" + fmt.Sprintf("%d", channelID))
+	return []byte(KeyPrefixStateDB + "channelID-" + dapp.HeightIndexStr(channelID, 0))
 }
 
 func calcLnsLocalChannelIDKey(channelID int64) []byte {
 
-	return []byte(KeyPrefixLocalDB + "channelID-" + fmt.Sprintf("%d", channelID))
+	return []byte(KeyPrefixLocalDB + "channelID-" + dapp.HeightIndexStr(channelID, 0))
 }
