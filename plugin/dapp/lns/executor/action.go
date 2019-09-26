@@ -132,8 +132,6 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 		return nil, err
 	}
 	participants := getParticipantMap(channel.Participant1, channel.Participant2)
-	//本次存入额度
-	depositAmount := deposit.TotalDeposit - participants[a.fromAddr].TotalDeposit
 	//check tx
 	if channel.State != lnstypes.StateOpen {
 		return nil, lnstypes.ErrChannelState
@@ -142,6 +140,8 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 	if !checkParticipantValidity(participants, a.fromAddr, partner) {
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
+	//本次存入额度
+	depositAmount := deposit.TotalDeposit - participants[a.fromAddr].TotalDeposit
 	if depositAmount <= 0 {
 		return nil, lnstypes.ErrTotalDepositAmount
 	}
@@ -203,8 +203,6 @@ func (a *action) withdrawChannel(withdraw *lnstypes.WithdrawChannel) (*types.Rec
 	withdrawAddr := a.fromAddr
 	partner := address.PubKeyToAddr(withdraw.GetPartnerSignature().GetPubkey())
 	totalWithdraw := withdraw.GetProof().GetTotalWithdraw()
-	//本次提取额度
-	withdrawAmount := totalWithdraw - participants[withdrawAddr].TotalWithdraw
 
 	//check tx
 	if channel.State != lnstypes.StateOpen {
@@ -215,6 +213,8 @@ func (a *action) withdrawChannel(withdraw *lnstypes.WithdrawChannel) (*types.Rec
 		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
 
+	//本次提取额度
+	withdrawAmount := totalWithdraw - participants[withdrawAddr].TotalWithdraw
 	if withdrawAmount <= 0 || withdrawAmount > channel.TotalAmount {
 		return nil, lnstypes.ErrInvalidWithdrawAmount
 	}
@@ -327,13 +327,14 @@ func (a *action) updateBalanceProof(update *lnstypes.UpdateBalanceProof) (*types
 	partner := address.PubKeyToAddr(update.GetPartnerSignature().GetPubkey())
 	participants := getParticipantMap(channel.Participant1, channel.Participant2)
 
-	//check tx 允许非close状态下更新对方的balanceProof, 但是不能超过挑战期
+	if !checkParticipantValidity(participants, partner, a.fromAddr) {
+		return nil, lnstypes.ErrInvalidChannelParticipants
+	}
+
+	// 允许非close状态下更新对方的balanceProof, 但是不能超过挑战期
 	if channel.State == lnstypes.StateClosed && channel.SettleBlockHeight <= a.height {
 		elog.Error("ExecUpdateChannelProofErr", "channelSettleHeight", channel.SettleBlockHeight, "currentHeight", a.height)
 		return nil, lnstypes.ErrChannelCloseChallengePeriod
-	}
-	if !checkParticipantValidity(participants, partner, a.fromAddr) {
-		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
 	if update.PartnerBalancePf.Nonce <= participants[partner].Nonce {
 		elog.Error("ExecUpdateChannelProof", "currNonce", participants[partner].Nonce, "errNonce", update.PartnerBalancePf.Nonce)
@@ -386,16 +387,16 @@ func (a *action) settleChannel(settle *lnstypes.Settle) (*types.Receipt, error) 
 	participants := getParticipantMap(channel.Participant1, channel.Participant2)
 
 	//check tx
+	if !checkParticipantValidity(participants, partner, a.fromAddr) {
+		return nil, lnstypes.ErrInvalidChannelParticipants
+	}
+
 	if channel.State != lnstypes.StateClosed {
 		return nil, lnstypes.ErrChannelState
 	}
 	if channel.SettleBlockHeight > a.height {
 		elog.Error("ExecSettleChannelErr", "currHeight", a.height, "settleHeight", channel.SettleBlockHeight)
 		return nil, lnstypes.ErrChannelCloseChallengePeriod
-	}
-
-	if !checkParticipantValidity(participants, partner, a.fromAddr) {
-		return nil, lnstypes.ErrInvalidChannelParticipants
 	}
 	//本方相对总转移额度
 	selfFinalTransAmount := participants[a.fromAddr].TransferredAmount - participants[partner].TransferredAmount
