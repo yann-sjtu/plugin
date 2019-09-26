@@ -17,8 +17,22 @@ func (l *lns) Query_GetChannel(in *lnstypes.ReqGetChannel) (types.Message, error
 
 	err := getDBAndDecode(l.GetStateDB(), chanKey, channel)
 	if err != nil {
-		elog.Error("ExecDepositChannel", "GetChannelErr", err)
+		elog.Error("Query_GetChannelChannel", "GetChannelErr", err)
 		return nil, err
 	}
 	return channel, nil
+}
+
+func (l *lns) Query_GetChannelCount(reqNil *types.ReqNil) (types.Message, error) {
+
+	chanCount := &lnstypes.ChannelCount{}
+	countKey := calcLnsChannelCountKey()
+
+	err := getDBAndDecode(l.GetStateDB(), countKey, chanCount)
+
+	if err != nil {
+		elog.Error("Query_GetChannelCountChannel", "GetChannelCountErr", err)
+		return nil, err
+	}
+	return chanCount, nil
 }

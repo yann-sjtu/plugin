@@ -18,7 +18,7 @@ func queryCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 	}
 
-	cmd.AddCommand(queryChannelCmd())
+	cmd.AddCommand(queryChannelCmd(), queryChannelCountCmd())
 	return cmd
 }
 
@@ -51,6 +51,35 @@ func queryChannel(cmd *cobra.Command, args []string) {
 	query := rpctypes.Query4Jrpc{
 		Execer:   lnsty.LnsX,
 		FuncName: lnsty.FuncQueryGetChannel,
+		Payload:  payLoad,
+	}
+
+	channel := &lnsty.Channel{}
+	ctx := jsonclient.NewRPCCtx(rpcLaddr, "Chain33.Query", query, channel)
+	ctx.Run()
+}
+
+func queryChannelCountCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chan_count",
+		Short: "query current channel count",
+		Run:   queryChannelCount,
+	}
+	return cmd
+}
+
+func queryChannelCount(cmd *cobra.Command, args []string) {
+	rpcLaddr, _ := cmd.Flags().GetString("rpc_laddr")
+
+	payLoad, err := types.PBToJSON(&types.ReqNil{})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "ErrPbToJson:"+err.Error())
+		return
+	}
+
+	query := rpctypes.Query4Jrpc{
+		Execer:   lnsty.LnsX,
+		FuncName: lnsty.FuncQueryGetChannelCount,
 		Payload:  payLoad,
 	}
 

@@ -101,8 +101,8 @@ func (l *lns) CheckTx(tx *types.Transaction, index int) error {
 		}
 
 		if fromAddr != withdraw.GetProof().GetWithdrawer() {
-			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "err", lnstypes.ErrWithdrawSign)
-			return lnstypes.ErrWithdrawSign
+			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "err", lnstypes.ErrChannelWithdrawer)
+			return lnstypes.ErrChannelWithdrawer
 		}
 		if proof.GetExpirationBlock() <= l.GetHeight() {
 			elog.Error("CheckWithdrawChannelTx", "ChannelID", proof.GetChannelID(), "currentHeight", l.GetHeight(),

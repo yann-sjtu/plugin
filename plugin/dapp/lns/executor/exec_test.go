@@ -68,10 +68,12 @@ func initEnv() (string, dapp.Driver, dbm.DB) {
 }
 
 type testcase struct {
-	payload   types.Message
-	expectErr error
-	priv      string
-	index     int
+	payload        types.Message
+	expectExecErr  error
+	bCheckTx       bool
+	expectCheckErr error
+	priv           string
+	index          int
 }
 
 func createTx(payload types.Message, priv string) (*types.Transaction, error) {
@@ -110,11 +112,17 @@ func runTest(db dbm.DB, exec dapp.Driver, tcArr []*testcase, priv string, t *tes
 		}
 		tx, err := createTx(tc.payload, signPriv)
 		assert.NoError(t, err, "lnsTestExecCreateTxErr")
+
+		if tc.bCheckTx {
+			err := exec.CheckTx(tx, i)
+			assert.Equalf(t, tc.expectCheckErr, err, "checkTx err index %d", tc.index)
+		}
+
 		recp, err := exec.Exec(tx, i)
 		if err == nil && len(recp.GetKV()) > 0 {
 			util.SaveKVList(db, recp.KV)
 		}
-		assert.Equalf(t, tc.expectErr, err, "testcase index %d", tc.index)
+		assert.Equalf(t, tc.expectExecErr, err, "execTx err index %d", tc.index)
 
 	}
 }
@@ -128,10 +136,12 @@ func TestLns_Exec_Open(t *testing.T) {
 			index: 0,
 			payload: &lnsty.OpenChannel{
 				IssueContract: "coins",
-				Partner:       partnerAddr2,
+				Partner:       partnerAddr1,
 				Amount:        types.Coin,
 			},
-			expectErr: nil,
+			expectExecErr:  nil,
+			expectCheckErr: lnsty.ErrInvalidChannelParticipants,
+			bCheckTx:       true,
 		},
 		{
 			index: 1,
@@ -141,17 +151,19 @@ func TestLns_Exec_Open(t *testing.T) {
 				SettleTimeout: maxSettleTimeout + 1,
 				Amount:        types.Coin,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
 			index: 2,
 			payload: &lnsty.OpenChannel{
-				IssueContract: "coins",
+				IssueContract: "",
 				Partner:       partnerAddr2,
 				SettleTimeout: minSettleTimeout + 1,
-				Amount:        initBalance + types.Coin,
+				Amount:        types.Coin,
 			},
-			expectErr: types.ErrNoBalance,
+			expectExecErr:  types.ErrNoBalance,
+			bCheckTx:       true,
+			expectCheckErr: types.ErrInvalidParam,
 		},
 	}
 	var err error
@@ -170,7 +182,6 @@ func TestLns_Exec_Open(t *testing.T) {
 	assert.NoError(t, err)
 	if err == nil {
 		assert.Equal(t, partnerAddr1, channel.Participant1.Addr)
-		assert.Equal(t, partnerAddr2, channel.Participant2.Addr)
 		assert.Equal(t, types.Coin, channel.Participant1.TotalDeposit)
 		assert.Equal(t, int64(0), channel.Participant2.TotalDeposit)
 	}
@@ -189,27 +200,29 @@ func TestLns_Exec_DepositChannel(t *testing.T) {
 				Partner:       partnerAddr2,
 				Amount:        types.Coin,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
-			index:     2,
-			payload:   &lnsty.DepositChannel{},
-			expectErr: types.ErrNotFound,
+			index:          2,
+			payload:        &lnsty.DepositChannel{},
+			expectExecErr:  types.ErrNotFound,
+			expectCheckErr: types.ErrInvalidParam,
+			bCheckTx:       true,
 		},
 		{
 			index: 3,
 			payload: &lnsty.DepositChannel{
 				ChannelID: 1,
 			},
-			expectErr: lnsty.ErrInvalidChannelParticipants,
-			priv:      priv3,
+			expectExecErr: lnsty.ErrInvalidChannelParticipants,
+			priv:          priv3,
 		},
 		{
 			index: 4,
 			payload: &lnsty.DepositChannel{
 				ChannelID: 1,
 			},
-			expectErr: lnsty.ErrTotalDepositAmount,
+			expectExecErr: lnsty.ErrTotalDepositAmount,
 		},
 		{
 			index: 5,
@@ -217,8 +230,8 @@ func TestLns_Exec_DepositChannel(t *testing.T) {
 				ChannelID:    1,
 				TotalDeposit: types.Coin,
 			},
-			expectErr: nil,
-			priv:      priv2,
+			expectExecErr: nil,
+			priv:          priv2,
 		},
 	}
 	var err error
@@ -235,27 +248,6 @@ func TestLns_Exec_DepositChannel(t *testing.T) {
 	assert.Equal(t, types.Coin, channel.Participant2.TotalDeposit)
 }
 
-func createTestSign(privKey string) (*types.Signature, error) {
-
-	keyByte, err := common.FromHex(privKey)
-	if err != nil {
-		return nil, err
-	}
-	cr, err := crypto.New(crypto.GetName(types.SECP256K1))
-	if err != nil {
-		return nil, err
-	}
-	priv, err := cr.PrivKeyFromBytes(keyByte)
-	if err != nil {
-		return nil, err
-	}
-	sign := &types.Signature{
-		Ty:     0,
-		Pubkey: priv.PubKey().Bytes(),
-	}
-	return sign, nil
-}
-
 func TestLns_Exec_WithdrawChannel(t *testing.T) {
 	dir, exec, ldb := initEnv()
 	defer util.CloseTestDB(dir, ldb)
@@ -270,14 +262,16 @@ func TestLns_Exec_WithdrawChannel(t *testing.T) {
 				Partner:       partnerAddr2,
 				Amount:        types.Coin * 10,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
 			index: 2,
 			payload: &lnsty.WithdrawChannel{
 				ChannelID: 0,
 			},
-			expectErr: types.ErrNotFound,
+			expectExecErr:  types.ErrNotFound,
+			expectCheckErr: types.ErrInvalidParam,
+			bCheckTx:       true,
 		},
 		{
 			index: 3,
@@ -286,41 +280,53 @@ func TestLns_Exec_WithdrawChannel(t *testing.T) {
 				Proof:            nil,
 				PartnerSignature: sign,
 			},
-			expectErr: lnsty.ErrInvalidChannelParticipants,
-			priv:      priv3,
+			expectExecErr: lnsty.ErrInvalidChannelParticipants,
+			priv:          priv3,
 		},
 		{
 			index: 4,
 			payload: &lnsty.WithdrawChannel{
 				ChannelID: 1,
 				Proof: &lnsty.WithdrawConfirmProof{
+					ChannelID:     1,
 					TotalWithdraw: types.Coin,
 				},
 				PartnerSignature: sign,
 			},
-			expectErr: nil,
+			expectExecErr:  nil,
+			expectCheckErr: lnsty.ErrChannelWithdrawer,
+			bCheckTx:       true,
 		},
 		{
 			index: 5,
 			payload: &lnsty.WithdrawChannel{
 				ChannelID: 1,
 				Proof: &lnsty.WithdrawConfirmProof{
+					ChannelID:     1,
 					TotalWithdraw: types.Coin,
+					Withdrawer:    partnerAddr1,
 				},
 				PartnerSignature: sign,
 			},
-			expectErr: lnsty.ErrInvalidWithdrawAmount,
+			expectExecErr:  lnsty.ErrInvalidWithdrawAmount,
+			expectCheckErr: lnsty.ErrWithdrawBlockExpiration,
+			bCheckTx:       true,
 		},
 		{
 			index: 6,
 			payload: &lnsty.WithdrawChannel{
 				ChannelID: 1,
 				Proof: &lnsty.WithdrawConfirmProof{
-					TotalWithdraw: types.Coin * 100,
+					ChannelID:       1,
+					TotalWithdraw:   types.Coin * 100,
+					Withdrawer:      partnerAddr1,
+					ExpirationBlock: 1000,
 				},
 				PartnerSignature: sign,
 			},
-			expectErr: lnsty.ErrInvalidWithdrawAmount,
+			expectExecErr:  lnsty.ErrInvalidWithdrawAmount,
+			expectCheckErr: lnsty.ErrPartnerSign,
+			bCheckTx:       true,
 		},
 	}
 	for _, tc := range tcArr {
@@ -349,12 +355,14 @@ func TestLns_Exec_Close(t *testing.T) {
 				Partner:       partnerAddr2,
 				Amount:        types.Coin * 10,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
-			index:     2,
-			payload:   &lnsty.CloseChannel{},
-			expectErr: types.ErrNotFound,
+			index:          2,
+			payload:        &lnsty.CloseChannel{},
+			expectExecErr:  types.ErrNotFound,
+			expectCheckErr: types.ErrInvalidParam,
+			bCheckTx:       true,
 		},
 		{
 			index: 3,
@@ -363,32 +371,38 @@ func TestLns_Exec_Close(t *testing.T) {
 				NonCloserBalancePf: nil,
 				NonCloserSignature: sign,
 			},
-			expectErr: lnsty.ErrInvalidChannelParticipants,
-			priv:      priv3,
+			expectExecErr: lnsty.ErrInvalidChannelParticipants,
+			priv:          priv3,
 		},
 		{
 			index: 4,
 			payload: &lnsty.CloseChannel{
 				ChannelID: 1,
 				NonCloserBalancePf: &lnsty.BalanceProof{
+					ChannelID:         2,
 					Nonce:             1,
 					TransferredAmount: types.Coin,
 				},
 				NonCloserSignature: sign,
 			},
-			expectErr: nil,
+			expectExecErr:  nil,
+			expectCheckErr: lnsty.ErrChannelInfoNotMatch,
+			bCheckTx:       true,
 		},
 		{
 			index: 5,
 			payload: &lnsty.CloseChannel{
 				ChannelID: 1,
 				NonCloserBalancePf: &lnsty.BalanceProof{
+					ChannelID:         1,
 					Nonce:             1,
 					TransferredAmount: types.Coin,
 				},
 				NonCloserSignature: sign,
 			},
-			expectErr: lnsty.ErrChannelState,
+			expectExecErr:  lnsty.ErrChannelState,
+			expectCheckErr: lnsty.ErrPartnerSign,
+			bCheckTx:       true,
 		},
 	}
 	for _, tc := range tcArr {
@@ -418,12 +432,14 @@ func TestLns_Exec_UpdateProof(t *testing.T) {
 				Partner:       partnerAddr2,
 				Amount:        types.Coin * 10,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
-			index:     2,
-			payload:   &lnsty.UpdateBalanceProof{},
-			expectErr: types.ErrNotFound,
+			index:          2,
+			payload:        &lnsty.UpdateBalanceProof{},
+			expectExecErr:  types.ErrNotFound,
+			expectCheckErr: types.ErrInvalidParam,
+			bCheckTx:       true,
 		},
 		{
 			index: 3,
@@ -432,20 +448,23 @@ func TestLns_Exec_UpdateProof(t *testing.T) {
 				PartnerBalancePf: nil,
 				PartnerSignature: sign,
 			},
-			expectErr: lnsty.ErrInvalidChannelParticipants,
-			priv:      priv3,
+			expectExecErr: lnsty.ErrInvalidChannelParticipants,
+			priv:          priv3,
 		},
 		{
 			index: 4,
 			payload: &lnsty.CloseChannel{
 				ChannelID: 1,
 				NonCloserBalancePf: &lnsty.BalanceProof{
+					ChannelID:         1,
 					Nonce:             1,
 					TransferredAmount: types.Coin,
 				},
 				NonCloserSignature: sign,
 			},
-			expectErr: nil,
+			expectExecErr:  nil,
+			expectCheckErr: lnsty.ErrPartnerSign,
+			bCheckTx:       true,
 		},
 		{
 			index: 5,
@@ -457,7 +476,7 @@ func TestLns_Exec_UpdateProof(t *testing.T) {
 				},
 				PartnerSignature: sign,
 			},
-			expectErr: lnsty.ErrBalanceProofNonce,
+			expectExecErr: lnsty.ErrBalanceProofNonce,
 		},
 		{
 			index: 6,
@@ -469,7 +488,7 @@ func TestLns_Exec_UpdateProof(t *testing.T) {
 				},
 				PartnerSignature: sign,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 	}
 	tcArr2 := []*testcase{
@@ -483,7 +502,7 @@ func TestLns_Exec_UpdateProof(t *testing.T) {
 				},
 				PartnerSignature: sign,
 			},
-			expectErr: lnsty.ErrChannelCloseChallengePeriod,
+			expectExecErr: lnsty.ErrChannelCloseChallengePeriod,
 		},
 	}
 
@@ -523,7 +542,7 @@ func TestLns_Exec_Settle(t *testing.T) {
 				Partner:       partnerAddr2,
 				Amount:        types.Coin,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
 			index: 1,
@@ -532,7 +551,7 @@ func TestLns_Exec_Settle(t *testing.T) {
 				Partner:       partnerAddr2,
 				Amount:        types.Coin,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
 			index: 1,
@@ -541,28 +560,30 @@ func TestLns_Exec_Settle(t *testing.T) {
 				Partner:       partnerAddr1,
 				Amount:        types.Coin,
 			},
-			expectErr: nil,
-			priv:      priv2,
+			expectExecErr: nil,
+			priv:          priv2,
 		},
 		{
-			index:     2,
-			payload:   &lnsty.Settle{},
-			expectErr: types.ErrNotFound,
+			index:          2,
+			payload:        &lnsty.Settle{},
+			expectExecErr:  types.ErrNotFound,
+			expectCheckErr: types.ErrInvalidParam,
+			bCheckTx:       true,
 		},
 		{
 			index: 3,
 			payload: &lnsty.Settle{
 				ChannelID: 1,
 			},
-			expectErr: lnsty.ErrInvalidChannelParticipants,
-			priv:      priv3,
+			expectExecErr: lnsty.ErrInvalidChannelParticipants,
+			priv:          priv3,
 		},
 		{
 			index: 4,
 			payload: &lnsty.Settle{
 				ChannelID: 1,
 			},
-			expectErr: lnsty.ErrChannelState,
+			expectExecErr: lnsty.ErrChannelState,
 		},
 		{
 			index: 51,
@@ -574,7 +595,7 @@ func TestLns_Exec_Settle(t *testing.T) {
 				},
 				NonCloserSignature: sign,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
 			index: 52,
@@ -586,8 +607,8 @@ func TestLns_Exec_Settle(t *testing.T) {
 				},
 				NonCloserSignature: sign1,
 			},
-			expectErr: nil,
-			priv:      priv2,
+			expectExecErr: nil,
+			priv:          priv2,
 		},
 		{
 			index: 53,
@@ -599,14 +620,14 @@ func TestLns_Exec_Settle(t *testing.T) {
 				},
 				NonCloserSignature: sign,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
 			index: 6,
 			payload: &lnsty.Settle{
 				ChannelID: 1,
 			},
-			expectErr: lnsty.ErrChannelCloseChallengePeriod,
+			expectExecErr: lnsty.ErrChannelCloseChallengePeriod,
 		},
 		{
 			index: 7,
@@ -618,8 +639,8 @@ func TestLns_Exec_Settle(t *testing.T) {
 				},
 				PartnerSignature: sign1,
 			},
-			expectErr: nil,
-			priv:      priv2,
+			expectExecErr: nil,
+			priv:          priv2,
 		},
 	}
 	tcArr2 := []*testcase{
@@ -628,21 +649,21 @@ func TestLns_Exec_Settle(t *testing.T) {
 			payload: &lnsty.Settle{
 				ChannelID: 1,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
 			index: 82,
 			payload: &lnsty.Settle{
 				ChannelID: 2,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 		{
 			index: 83,
 			payload: &lnsty.Settle{
 				ChannelID: 3,
 			},
-			expectErr: nil,
+			expectExecErr: nil,
 		},
 	}
 
@@ -700,4 +721,26 @@ func formatLnsAction(param types.Message) (types.Message, error) {
 	}
 
 	return action, nil
+}
+
+func createTestSign(privKey string) (*types.Signature, error) {
+
+	keyByte, err := common.FromHex(privKey)
+	if err != nil {
+		return nil, err
+	}
+	cr, err := crypto.New(crypto.GetName(types.SECP256K1))
+	if err != nil {
+		return nil, err
+	}
+	priv, err := cr.PrivKeyFromBytes(keyByte)
+	if err != nil {
+		return nil, err
+	}
+	sign := &types.Signature{
+		Ty:        types.SECP256K1,
+		Pubkey:    priv.PubKey().Bytes(),
+		Signature: []byte("errSign"),
+	}
+	return sign, nil
 }

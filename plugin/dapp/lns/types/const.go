@@ -47,5 +47,6 @@ const (
 
 // query function name
 const (
-	FuncQueryGetChannel = "GetChannel"
+	FuncQueryGetChannel      = "GetChannel"
+	FuncQueryGetChannelCount = "GetChannelCount"
 )

@@ -146,6 +146,24 @@ func testQueryChannel(t *testing.T, cli *jsonclient.JSONClient) error {
 	return cli.Call("Chain33.Query", query, channel)
 }
 
+func testQueryChannelCount(t *testing.T, cli *jsonclient.JSONClient) error {
+
+	params := &types.ReqNil{}
+
+	payLoad, err := types.PBToJSON(params)
+	if err != nil {
+		return err
+	}
+	query := rpctypes.Query4Jrpc{
+		Execer:   lnsty.LnsX,
+		FuncName: lnsty.FuncQueryGetChannelCount,
+		Payload:  payLoad,
+	}
+
+	channel := &lnsty.ChannelCount{}
+	return cli.Call("Chain33.Query", query, channel)
+}
+
 func TestJRPCChannel(t *testing.T) {
 	// 启动RPCmocker
 	mocker := testnode.New("--notset--", nil)
@@ -168,10 +186,11 @@ func TestJRPCChannel(t *testing.T) {
 		{fn: testUpdateProofTx},
 		{fn: testSettleChanTx},
 		{fn: testQueryChannel, err: types.ErrNotFound},
+		{fn: testQueryChannelCount, err: types.ErrNotFound},
 	}
 
 	for index, testCase := range testCases {
 		err := testCase.fn(t, jrpcClient)
-		assert.Equalf(t, err, testCase.err, "test case index %d", index)
+		assert.Equalf(t, testCase.err, err, "test case index %d", index)
 	}
 }

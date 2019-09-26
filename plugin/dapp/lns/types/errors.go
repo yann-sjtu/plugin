@@ -10,7 +10,7 @@ var (
 	ErrInvalidTransferredAmount    = errors.New("ErrInvalidTransferredAmount")
 	ErrChannelCloseChallengePeriod = errors.New("ErrChannelCloseChallengePeriod")
 	ErrWithdrawBlockExpiration     = errors.New("ErrWithdrawBlockExpiration")
-	ErrWithdrawSign                = errors.New("ErrWithdrawSign")
+	ErrChannelWithdrawer           = errors.New("ErrChannelWithdrawer")
 	ErrPartnerSign                 = errors.New("ErrPartnerSign")
 	ErrTotalDepositAmount          = errors.New("ErrTotalDepositAmount")
 	ErrChannelInfoNotMatch         = errors.New("ErrChannelInfoNotMatch")
