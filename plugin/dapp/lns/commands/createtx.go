@@ -137,7 +137,7 @@ func withdrawChannelCmd() *cobra.Command {
 
 	cmd.Flags().Int64P("channelID", "c", 0, "channel id")
 	cmd.Flags().StringP("proof", "d", "", "withdraw proof hex data")
-	cmd.Flags().StringP("partnerSign", "p", "", "partner signature hex data")
+	cmd.Flags().StringP("partnerSign", "s", "", "partner signature hex data")
 
 	cmd.MarkFlagRequired("channelID")
 	cmd.MarkFlagRequired("proof")
