@@ -89,10 +89,12 @@ func (a *action) openChannel(open *lnstypes.OpenChannel) (*types.Receipt, error)
 			Partner:        open.Partner,
 			ChannelID:      channel.ChannelID,
 			InitialBalance: open.Amount,
-			ChainName:      types.GetTitle(),
-			IssueContract:  open.GetIssueContract(),
-			TokenSymbol:    open.GetTokenSymbol(),
 			SettleTimeOut:  open.SettleTimeout,
+			TokenCanonicalId: &lnstypes.TokenCanonicalId{
+				Chain:         types.GetTitle(),
+				IssueContract: open.GetIssueContract(),
+				TokenSymbol:   open.GetTokenSymbol(),
+			},
 		}),
 	})
 	accDB, err := a.createAccountDB(open.IssueContract, open.TokenSymbol)
@@ -158,13 +160,15 @@ func (a *action) depositChannel(deposit *lnstypes.DepositChannel) (*types.Receip
 	receipt.Logs = append(receipt.Logs, &types.ReceiptLog{
 		Ty: lnstypes.TyDepositLog,
 		Log: types.Encode(&lnstypes.ReceiptDeposit{
-			Chain:         types.GetTitle(),
-			IssueContract: channel.GetIssueContract(),
-			TokenSymbol:   channel.GetTokenSymbol(),
-			TotalDeposit:  deposit.TotalDeposit,
-			ChannelID:     channel.ChannelID,
-			Depositor:     a.fromAddr,
-			Partner:       partner}),
+			TokenCanonicalId: &lnstypes.TokenCanonicalId{
+				Chain:         types.GetTitle(),
+				IssueContract: channel.GetIssueContract(),
+				TokenSymbol:   channel.GetTokenSymbol(),
+			},
+			TotalDeposit: deposit.TotalDeposit,
+			ChannelID:    channel.ChannelID,
+			Depositor:    a.fromAddr,
+			Partner:      partner}),
 	})
 
 	accDB, err := a.createAccountDB(channel.IssueContract, channel.TokenSymbol)

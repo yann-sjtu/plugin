@@ -37,9 +37,9 @@ message DepositChannel {
 }
 
 message WithdrawChannel {
-    int64                channelID           = 1;
-    WithdrawConfirmProof proof               = 2;
-    Signature            partnerSignature    = 3;
+    int64                channelID        = 1;
+    WithdrawConfirmProof proof            = 2;
+    Signature            partnerSignature = 3;
 }
 
 message WithdrawConfirmProof {
@@ -85,7 +85,7 @@ message UpdateBalanceProof {
 }
 
 message Settle {
-    int64 channelID                = 1;
+    int64 channelID = 1;
 }
 
 message Participant {
@@ -117,31 +117,28 @@ message ReqGetChannel {
 }
 
 message ReceiptOpen {
-    string opener         = 1;
-    string partner        = 2;
-    int64  channelID      = 3;
-    int64  initialBalance = 4;
-    string chainName      = 5;
-    string issueContract  = 6;
-    string TokenSymbol    = 7;
-    int32  settleTimeOut  = 8;
+    TokenCanonicalId tokenCanonicalId = 1;
+    string           opener           = 2;
+    string           partner          = 3;
+    int64            channelID        = 4;
+    int64            initialBalance   = 5;
+    int32            settleTimeOut    = 6;
 }
 
 message ReceiptDeposit {
-    string chain         = 1;
-    string issueContract = 2;
-    string tokenSymbol   = 3;
-    int64  channelID     = 4;
-    int64  totalDeposit  = 5;
-    string depositor     = 6;
-    string partner       = 7;
+    TokenCanonicalId tokenCanonicalId = 1;
+    int64            channelID        = 2;
+    int64            totalDeposit     = 3;
+    string           depositor        = 4;
+    string           partner          = 5;
 }
 
 message ReceiptWithdraw {
-    int64  channelID     = 1;
-    int64  totalWithdraw = 2;
-    string withdrawer    = 4;
-    string partner       = 5;
+    TokenCanonicalId tokenCanonicalId = 1;
+    int64            channelID        = 2;
+    int64            totalWithdraw    = 3;
+    string           withdrawer       = 4;
+    string           partner          = 5;
 }
 
 message ReceiptClose {
