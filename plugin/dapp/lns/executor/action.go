@@ -236,6 +236,11 @@ func (a *action) withdrawChannel(withdraw *lnstypes.WithdrawChannel) (*types.Rec
 	receipt.Logs = append(receipt.Logs, &types.ReceiptLog{
 		Ty: lnstypes.TyWithdrawLog,
 		Log: types.Encode(&lnstypes.ReceiptWithdraw{
+			TokenCanonicalId: &lnstypes.TokenCanonicalId{
+				Chain:         types.GetTitle(),
+				IssueContract: channel.GetIssueContract(),
+				TokenSymbol:   channel.GetTokenSymbol(),
+			},
 			TotalWithdraw: totalWithdraw,
 			ChannelID:     channel.ChannelID,
 			Withdrawer:    withdrawAddr,
