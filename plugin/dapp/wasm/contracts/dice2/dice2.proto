@@ -1,0 +1,31 @@
+syntax = "proto3";
+package dice2;
+
+message roundinfo {
+  int64 round = 1;
+  int64 amount = 2;
+  int64 height = 3;
+  int64 guess_num = 4;
+  int64 rand_num = 5;
+  string player = 6;
+  bool player_win = 7;
+  bool is_finished = 8;
+}
+
+message addrinfo {
+  int64 betting_times = 1;
+  int64 betting_amount = 2;
+  int64 earnings = 3;
+};
+
+message gamestatus {
+  string game_creator = 1;
+  int64 deposit = 2;
+  int64 height = 3;
+  int64 game_balance = 4;
+  int64 current_round = 5;
+  int64 finished_round = 6;
+  int64 total_bets = 7;
+  int64 total_player_win = 8;
+  bool is_active = 9;
+};
